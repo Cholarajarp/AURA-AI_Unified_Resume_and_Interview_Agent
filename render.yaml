@@ -3,18 +3,49 @@ services:
     name: aura-agent
     env: python
     runtime: python-3.13
-    buildCommand: npm install --prefix frontend && npm run build --prefix frontend && cp frontend/dist/index.html backend/templates/ && cp -r frontend/dist/* backend/static/
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: |
+      echo "==== Install backend Python deps ===="
+      if [ -f backend/requirements.txt ]; then
+        pip install -r backend/requirements.txt
+      else
+        echo "No backend/requirements.txt found"
+      fi
+
+      echo "==== Build frontend (if applicable) ===="
+      if [ -f frontend/package.json ]; then
+        echo "Found frontend/package.json — installing and building..."
+        # Install node deps and build inside frontend (Render provides node in many images;
+        # if it fails, consider switching to two-service approach)
+        npm ci --prefix frontend
+        npm run build --prefix frontend
+      else
+        echo "No frontend/package.json found — skipping frontend build."
+      fi
+
+      echo "==== Copy built frontend into backend static/templates ===="
+      # Try Vite -> dist first, then CRA -> build
+      if [ -d frontend/dist ]; then
+        mkdir -p backend/templates
+        mkdir -p backend/static
+        cp frontend/dist/index.html backend/templates/index.html
+        cp -r frontend/dist/* backend/static/
+        echo "Copied frontend/dist -> backend/{templates,static}"
+      elif [ -d frontend/build ]; then
+        mkdir -p backend/templates
+        mkdir -p backend/static
+        cp frontend/build/index.html backend/templates/index.html
+        cp -r frontend/build/* backend/static/
+        echo "Copied frontend/build -> backend/{templates,static}"
+      else
+        echo "No frontend build output found in frontend/dist or frontend/build — continuing without frontend files."
+      fi
+
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --proxy-headers
     envVars:
       - key: ENVIRONMENT
         value: production
       - key: GOOGLE_API_KEY
         value: ${GOOGLE_API_KEY}
       - key: LLM_MODEL
-        value: gemini-2.5-flash
+        value: ${LLM_MODEL}
     region: ohio
-
-
-
-
-
