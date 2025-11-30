@@ -41,11 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files (frontend)
-frontend_dist = Path("../frontend/dist")
-if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="static")
-
 STORAGE = Path("./data")
 STORAGE.mkdir(exist_ok=True)
 
@@ -267,6 +262,16 @@ async def delete_session(session_id: str):
         return {'status': 'success', 'message': 'Session deleted'}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# Mount static files (frontend) - MUST be after all API routes
+frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="static")
+else:
+    # Fallback: try alternate path for Docker
+    frontend_dist_docker = Path("/app/frontend/dist")
+    if frontend_dist_docker.exists():
+        app.mount("/", StaticFiles(directory=str(frontend_dist_docker), html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
