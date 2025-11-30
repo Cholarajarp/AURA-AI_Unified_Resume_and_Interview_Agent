@@ -93,6 +93,47 @@ def extract_json_from_markdown(text: str) -> str:
     return text.strip()
 
 
+def repair_json_string(text: str) -> str:
+    """Attempt to repair common JSON issues"""
+    # Remove any leading/trailing whitespace
+    text = text.strip()
+    
+    # If it starts with [ or {, try to parse as-is first
+    if not (text.startswith('{') or text.startswith('[')):
+        # Try to find first { or [
+        brace_idx = text.find('{')
+        bracket_idx = text.find('[')
+        
+        start_idx = -1
+        if brace_idx != -1 and bracket_idx != -1:
+            start_idx = min(brace_idx, bracket_idx)
+        elif brace_idx != -1:
+            start_idx = brace_idx
+        elif bracket_idx != -1:
+            start_idx = bracket_idx
+        
+        if start_idx != -1:
+            text = text[start_idx:]
+    
+    # Try to find the end of JSON (last } or ])
+    last_brace = text.rfind('}')
+    last_bracket = text.rfind(']')
+    
+    end_idx = -1
+    if last_brace != -1 and last_bracket != -1:
+        end_idx = max(last_brace, last_bracket) + 1
+    elif last_brace != -1:
+        end_idx = last_brace + 1
+    elif last_bracket != -1:
+        end_idx = last_bracket + 1
+    
+    if end_idx != -1:
+        text = text[:end_idx]
+    
+    return text
+
+
+
 
 def analyze_resume_with_llm(resume_text: str, job_description: str) -> Dict:
     """Analyze resume and score against job description"""
@@ -141,6 +182,9 @@ Output JSON with: name, skills, experience, education, projects, skillMatch (0-1
     try:
         # Clean any markdown wrapping
         cleaned = extract_json_from_markdown(raw)
+        
+        # Try to repair common JSON issues
+        cleaned = repair_json_string(cleaned)
         
         # Log the cleaned response for debugging
         print(f"Response length: {len(cleaned)} chars")
@@ -195,6 +239,10 @@ Format: ["question1", "question2", "question3", "question4"]"""
     try:
         # Clean any markdown wrapping
         cleaned = extract_json_from_markdown(raw)
+        
+        # Try to repair common JSON issues
+        cleaned = repair_json_string(cleaned)
+        
         out = json.loads(cleaned)
         if isinstance(out, list) and len(out) >= 4:
             print(f"Real interview questions generated: {len(out)} questions")
