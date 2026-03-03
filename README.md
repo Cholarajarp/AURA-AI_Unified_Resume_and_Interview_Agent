@@ -301,4 +301,3 @@ For issues or questions:
 
 **Built with using FastAPI, React, and Render**
 
-**Status**: Ready for production deployment
